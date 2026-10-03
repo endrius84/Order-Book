@@ -1,0 +1,13 @@
+# App backups contain customer and invoice data — never commit them
+order-book-backup-*.json
+*.backup.json
+
+# Exported files
+*.pdf
+orders-*.csv
+
+# OS / editor clutter
+.DS_Store
+*~
+.vscode/
+.idea/
