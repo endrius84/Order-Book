@@ -554,6 +554,15 @@ tfoot td{font-weight:700;border-bottom:0;background:var(--soft)}
 .hint{font-size:13px;color:var(--muted);margin:0 0 10px}
 
 .hist td:first-child{font-weight:700}
+.gate{position:fixed;inset:0;z-index:50;background:var(--bg);display:grid;place-items:center;padding:16px}
+.gate[hidden]{display:none}
+.gate .card{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:28px 24px;max-width:380px;width:100%;text-align:center}
+.gate .card img{width:64px;height:64px;border-radius:14px;margin-bottom:12px}
+.gate h2{margin:0 0 6px;font-size:20px}.gate p{color:var(--muted);font-size:14px;margin:0 0 18px}
+.gate .btn{width:100%;margin-bottom:8px}
+.linkbtn{background:none;border:0;color:var(--muted);text-decoration:underline;cursor:pointer;font:inherit;font-size:13px;padding:6px}
+.sync-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--paid);margin-right:6px;vertical-align:middle}
+.sync-dot.off{background:var(--due)}
 .mode{font-size:12px;color:var(--muted);margin-top:24px;text-align:center}
 
 .toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 20px);transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:9px;font-size:14px;opacity:0;pointer-events:none;max-width:90vw;z-index:10}
@@ -722,8 +731,17 @@ tfoot td{font-weight:700;border-bottom:0;background:var(--soft)}
       <div class="btns"><button class="btn primary" type="submit">Save settings</button></div>
     </form>
     <div class="panel" style="margin-top:16px">
+      <h2>Cloud sync</h2>
+      <p class="hint" id="cloudStatus">Not signed in.</p>
+      <div class="btns">
+        <button class="btn primary" type="button" id="cloudSignIn">Sign in with Google</button>
+        <button class="btn" type="button" id="cloudImport" hidden>Copy this browser's data to the cloud</button>
+        <button class="btn" type="button" id="cloudSignOut" hidden>Sign out</button>
+      </div>
+    </div>
+    <div class="panel" style="margin-top:16px">
       <h2>Backup</h2>
-      <p class="hint">Your data lives in this browser. Clearing browsing data or switching browser starts you fresh, so keep a backup file — you can restore it here or on another computer.</p>
+      <p class="hint" id="backupHint">Your data lives in this browser. Clearing browsing data or switching browser starts you fresh, so keep a backup file — you can restore it here or on another computer.</p>
       <div class="btns">
         <button class="btn" type="button" id="backupBtn">Download backup</button>
         <label class="btn" style="display:inline-block">Restore from backup<input type="file" id="restoreFile" accept="application/json,.json" hidden></label>
@@ -734,8 +752,20 @@ tfoot td{font-weight:700;border-bottom:0;background:var(--soft)}
   <p class="mode" id="modeNote"></p>
 </div>
 <div id="printArea"></div>
+<div class="gate" id="gate" hidden>
+  <div class="card">
+    <img src="data:image/png;base64,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" alt="">
+    <h2>Order book</h2>
+    <p id="gateMsg">Sign in to see your orders on any device.</p>
+    <button class="btn primary" type="button" id="gateSignIn">Sign in with Google</button>
+    <button class="linkbtn" type="button" id="gateLocal">Use on this device only, without syncing</button>
+  </div>
+</div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script>
 (function(){
 "use strict";
@@ -763,20 +793,85 @@ let tt;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('sh
 
 /* ---------- storage ---------- */
 const LKEY='orderbook:v1';
-const Store={mode:'local',
+const FB_CONFIG={apiKey:"AIzaSyAfzsL0P4fdep4ry06hmzBc85c2yZyRmv4",authDomain:"order-book-data-base.firebaseapp.com",projectId:"order-book-data-base",storageBucket:"order-book-data-base.firebasestorage.app",messagingSenderId:"90058929847",appId:"1:90058929847:web:4f1d4f004fd899edb87f32"};
+const ALLOWED_EMAIL='aj.gruszeczka@gmail.com';
+const LOCAL_ONLY_KEY='orderbook:localOnly',MIGRATED_KEY='orderbook:migrated';
+function lsGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function lsSet(k,v){try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){}}
+const Store={mode:'local',user:null,unsubs:[],auth:null,db:null,
   loadLocal(){try{const raw=localStorage.getItem(LKEY);if(raw){const j=JSON.parse(raw);S.settings={...DEFAULTS,...(j.settings||{})};S.orders=j.orders||{};S.invoices=j.invoices||{}}}catch(e){}},
+  readLocal(){try{const j=JSON.parse(localStorage.getItem(LKEY)||'null');return j||{orders:{},invoices:{}}}catch(e){return {orders:{},invoices:{}}}},
   saveLocal(){try{localStorage.setItem(LKEY,JSON.stringify({settings:S.settings,orders:S.orders,invoices:S.invoices}))}catch(e){toast("Couldn't save in this browser — storage may be full")}},
-  async init(){this.mode='local';this.loadLocal();S.loaded=true;boot()},
-  fail(e){toast("Couldn't reach your saved data"+(e&&e.message?': '+e.message:''));if(!S.loaded){this.mode='local';this.loadLocal();S.loaded=true;boot()}},
-  async write(fn){try{await fn()}catch(e){toast("Couldn't save: "+((e&&e.message)||'unknown error'))}},
+  async init(){
+    if(!window.firebase){this.startLocal();if(!navigator.onLine)toast('Offline — using data saved on this device');return}
+    try{
+      firebase.initializeApp(FB_CONFIG);this.auth=firebase.auth();this.db=firebase.firestore();
+      this.db.enablePersistence({synchronizeTabs:true}).catch(()=>{});
+    }catch(e){this.startLocal();toast('Cloud sync unavailable: '+e.message);return}
+    this.auth.onAuthStateChanged(u=>{
+      if(u&&u.email!==ALLOWED_EMAIL){toast(u.email+" isn't allowed to use this order book");this.auth.signOut();return}
+      if(u){lsSet(LOCAL_ONLY_KEY,null);$('#gate').hidden=true;this.startCloud(u)}
+      else{this.stopCloud();if(lsGet(LOCAL_ONLY_KEY)==='1'){if(this.mode!=='local'||!S.loaded)this.startLocal()}else{this.mode='none';$('#gate').hidden=false}}
+      renderCloud();
+    });
+  },
+  startLocal(){this.stopCloud();this.mode='local';S.settings={...DEFAULTS};S.orders={};S.invoices={};this.loadLocal();S.loaded=true;$('#gate').hidden=true;boot();renderCloud()},
+  stopCloud(){this.unsubs.forEach(f=>{try{f()}catch(e){}});this.unsubs=[];this.user=null},
+  startCloud(u){
+    this.stopCloud();this.user=u;this.mode='db';S.loaded=false;S.settings={...DEFAULTS};S.orders={};S.invoices={};S.sel.clear();
+    const base=this.db.collection('users').doc(u.uid);
+    this.ordersCol=base.collection('orders');this.invCol=base.collection('invoices');this.settingsRef=base.collection('meta').doc('settings');
+    const got={orders:0,invoices:0,settings:0};
+    const ready=()=>{if(!S.loaded&&got.orders&&got.invoices&&got.settings){S.loaded=true;boot();renderCloud();this.offerImport()}};
+    const err=e=>{toast("Couldn't load from the cloud: "+((e&&e.message)||e))};
+    this.unsubs.push(this.ordersCol.onSnapshot(snap=>{const m={};snap.forEach(d=>m[d.id]={...d.data(),id:d.id});S.orders=m;got.orders=1;if(S.loaded)onData('orders');else ready()},err));
+    this.unsubs.push(this.invCol.onSnapshot(snap=>{const m={};snap.forEach(d=>m[d.id]={...d.data(),id:d.id});S.invoices=m;got.invoices=1;if(S.loaded)onData('invoices');else ready()},err));
+    this.unsubs.push(this.settingsRef.onSnapshot(d=>{S.settings={...DEFAULTS,...(d.exists?d.data():{})};got.settings=1;if(S.loaded)onData('settings');else ready()},err));
+    setTimeout(()=>{if(this.mode==='db'&&!S.loaded){S.loaded=true;boot();renderCloud();toast('Still connecting to the cloud — showing what is cached')}},8000);
+  },
+  localCounts(){const j=this.readLocal();return {o:Object.keys(j.orders||{}).length,i:Object.keys(j.invoices||{}).length}},
+  offerImport(){const c=this.localCounts();if(!(c.o||c.i)||lsGet(MIGRATED_KEY)==='1')return;
+    if(!Object.keys(S.orders).length&&!Object.keys(S.invoices).length)toast('Found '+c.o+' orders saved in this browser — Settings → Cloud sync to copy them up');renderCloud()},
+  async batchWrite(ops){for(let k=0;k<ops.length;k+=400){const b=this.db.batch();ops.slice(k,k+400).forEach(op=>op(b));await b.commit()}},
+  async replaceAll(j){
+    const ops=[];Object.keys(S.orders).forEach(id=>ops.push(b=>b.delete(this.ordersCol.doc(id))));Object.keys(S.invoices).forEach(id=>ops.push(b=>b.delete(this.invCol.doc(id))));
+    await this.batchWrite(ops);await this.mergeIn(j,true)},
+  async mergeIn(j,withSettings){const ops=[];
+    Object.entries(j.orders||{}).forEach(([id,o])=>ops.push(b=>b.set(this.ordersCol.doc(id),this.clean(o))));
+    Object.entries(j.invoices||{}).forEach(([id,i])=>ops.push(b=>b.set(this.invCol.doc(id),this.clean(i))));
+    if(withSettings&&j.settings)ops.push(b=>b.set(this.settingsRef,this.clean({...DEFAULTS,...j.settings})));
+    await this.batchWrite(ops)},
+  fail(e){toast("Couldn't reach your saved data"+(e&&e.message?': '+e.message:''));if(!S.loaded){this.startLocal()}},
+  /* writes apply to the local cache instantly; the server ack can come later (offline-friendly), so don't wait for it */
+  async write(fn){try{const p=fn();if(p&&p.catch)p.catch(e=>toast("Couldn't save: "+((e&&e.message)||'unknown error')))}catch(e){toast("Couldn't save: "+((e&&e.message)||'unknown error'))}},
   clean(o){const c={...o};delete c.id;return JSON.parse(JSON.stringify(c))},
   async putOrder(o){S.orders[o.id]=o;if(this.mode==='db')await this.write(()=>this.ordersCol.doc(o.id).set(this.clean(o)));else this.saveLocal()},
-  async putOrders(list){list.forEach(o=>S.orders[o.id]=o);if(this.mode==='db')await this.write(()=>Promise.all(list.map(o=>this.ordersCol.doc(o.id).set(this.clean(o)))));else this.saveLocal()},
-  async delOrders(ids){ids.forEach(id=>delete S.orders[id]);if(this.mode==='db')await this.write(()=>Promise.all(ids.map(id=>this.ordersCol.doc(id).delete())));else this.saveLocal()},
+  async putOrders(list){list.forEach(o=>S.orders[o.id]=o);if(this.mode==='db')await this.write(()=>this.batchWrite(list.map(o=>b=>b.set(this.ordersCol.doc(o.id),this.clean(o)))));else this.saveLocal()},
+  async delOrders(ids){ids.forEach(id=>delete S.orders[id]);if(this.mode==='db')await this.write(()=>this.batchWrite(ids.map(id=>b=>b.delete(this.ordersCol.doc(id)))));else this.saveLocal()},
   async putSettings(s){S.settings=s;if(this.mode==='db')await this.write(()=>this.settingsRef.set(this.clean(s)));else this.saveLocal()},
   async putInvoice(i){S.invoices[i.id]=i;if(this.mode==='db')await this.write(()=>this.invCol.doc(i.id).set(this.clean(i)));else this.saveLocal()},
   async delInvoice(id){delete S.invoices[id];if(this.mode==='db')await this.write(()=>this.invCol.doc(id).delete());else this.saveLocal()}
 };
+async function signIn(){
+  if(!Store.auth){toast('Cloud sync needs an internet connection');return}
+  const prov=new firebase.auth.GoogleAuthProvider();prov.setCustomParameters({prompt:'select_account',login_hint:ALLOWED_EMAIL});
+  try{await Store.auth.signInWithPopup(prov)}
+  catch(e){
+    if(e.code==='auth/popup-blocked'||e.code==='auth/operation-not-supported-in-this-environment'){try{await Store.auth.signInWithRedirect(prov)}catch(e2){toast('Sign-in failed: '+e2.message)}}
+    else if(e.code==='auth/unauthorized-domain')toast('This address isn\'t approved in Firebase (Authentication → Settings → Authorized domains)');
+    else if(e.code!=='auth/popup-closed-by-user'&&e.code!=='auth/cancelled-popup-request')toast('Sign-in failed: '+e.message);
+  }
+}
+function renderCloud(){
+  const st=$('#cloudStatus');if(!st)return;const u=Store.user,c=Store.localCounts();
+  $('#cloudSignIn').hidden=!!u;$('#cloudSignOut').hidden=!u;
+  $('#cloudImport').hidden=!(u&&(c.o||c.i));
+  $('#cloudImport').textContent='Copy this browser\'s data to the cloud ('+c.o+' orders, '+c.i+' invoices)';
+  st.innerHTML=u?'<span class="sync-dot'+(navigator.onLine?'':' off')+'"></span>Signed in as <b>'+esc(u.email)+'</b>. '+(navigator.onLine?'Changes sync to your other devices automatically.':'Offline — changes are kept and will sync when you\'re back online.')
+    :(window.firebase?'Not signed in — data is only saved in this browser. Sign in to sync between your phone and computer.':'Cloud sync couldn\'t load (no internet?). Data is saved in this browser for now.');
+  const bh=$('#backupHint');if(bh)bh.textContent=u?'Your data is stored in the cloud. A backup file is still a good idea now and then — restoring one replaces what\'s in the cloud.':'Your data lives in this browser. Clearing browsing data or switching browser starts you fresh, so keep a backup file — you can restore it here or on another computer.';
+}
+
 function saveFile(filename,data,type){const blob=data instanceof Blob?data:new Blob([data],{type:type||'application/octet-stream'});
   const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000)}
 
@@ -1106,18 +1201,18 @@ $('#shareInv').addEventListener('click',()=>{const ed=D.editingId&&S.invoices[D.
 /* ---------- backup ---------- */
 $('#backupBtn').addEventListener('click',()=>{saveFile('order-book-backup-'+localISO()+'.json',JSON.stringify({app:'order-book',version:1,savedAt:new Date().toISOString(),settings:S.settings,orders:S.orders,invoices:S.invoices},null,1),'application/json');toast('Backup downloaded')});
 $('#restoreFile').addEventListener('change',e=>{const file=e.target.files[0];e.target.value='';if(!file)return;const rd=new FileReader();
-  rd.onload=()=>{let j;try{j=JSON.parse(rd.result)}catch(err){toast("That file isn't a valid backup");return}
+  rd.onload=async()=>{let j;try{j=JSON.parse(rd.result)}catch(err){toast("That file isn't a valid backup");return}
     if(!j||typeof j.orders!=='object'||typeof j.invoices!=='object'){toast("That file isn't an Order book backup");return}
     const btn=$('#restoreFile').parentElement;
     if(Object.keys(S.orders).length&&!btn.dataset.ok){btn.dataset.ok='1';toast('This replaces everything here. Choose the file again to confirm.');setTimeout(()=>delete btn.dataset.ok,8000);return}
     delete btn.dataset.ok;
-    S.settings={...DEFAULTS,...(j.settings||{})};S.orders=j.orders||{};S.invoices=j.invoices||{};S.sel.clear();Store.saveLocal();newDraft(false);fillSettings();resetOrderForm();renderAll();
-    toast('Restored '+Object.keys(S.orders).length+' orders and '+Object.keys(S.invoices).length+' invoices')};
+    S.sel.clear();if(Store.mode==='db'){try{await Store.replaceAll(j)}catch(err){toast('Restore failed: '+err.message);return}}else{S.settings={...DEFAULTS,...(j.settings||{})};S.orders=j.orders||{};S.invoices=j.invoices||{};Store.saveLocal()}newDraft(false);fillSettings();resetOrderForm();renderAll();
+    toast('Restored '+Object.keys(j.orders||{}).length+' orders and '+Object.keys(j.invoices||{}).length+' invoices')};
   rd.readAsText(file)});
 
 /* ---------- wiring ---------- */
 function renderHeader(){$('#coName').textContent=S.settings.company||'Track orders, get paid';
-  $('#modeNote').textContent='Everything is saved in this browser on this device. Download a backup from Settings now and then.';}
+  $('#modeNote').textContent=Store.mode==='db'?(navigator.onLine?'Synced to the cloud as '+(Store.user&&Store.user.email):'Offline — changes will sync when you\'re back online'):'Saved in this browser only. Sign in under Settings to sync between devices.';}
 function renderAll(){renderHeader();renderOrders();updateCalc();if(S.view==='invoices'){renderPick();renderPreview();renderHistory()}}
 function onData(kind){
   if(kind==='settings'&&S.view==='settings'){/* keep the form as the user left it */}
@@ -1125,6 +1220,17 @@ function onData(kind){
 }
 function boot(){resetOrderForm();renderAll()}
 
+$('#gateSignIn').addEventListener('click',signIn);
+$('#cloudSignIn').addEventListener('click',signIn);
+$('#gateLocal').addEventListener('click',()=>{lsSet(LOCAL_ONLY_KEY,'1');Store.startLocal()});
+$('#cloudSignOut').addEventListener('click',async()=>{if(!Store.auth)return;lsSet(LOCAL_ONLY_KEY,null);await Store.auth.signOut();toast('Signed out')});
+$('#cloudImport').addEventListener('click',async e=>{const btn=e.currentTarget;
+  if(!btn.dataset.ok){btn.dataset.ok='1';btn.textContent='Click again to confirm — adds them to the cloud';setTimeout(()=>{delete btn.dataset.ok;renderCloud()},6000);return}
+  delete btn.dataset.ok;btn.disabled=true;
+  try{const j=Store.readLocal();await Store.mergeIn(j,!Object.keys(S.orders).length);lsSet(MIGRATED_KEY,'1');toast('Copied '+Object.keys(j.orders||{}).length+' orders and '+Object.keys(j.invoices||{}).length+' invoices to the cloud')}
+  catch(err){toast('Copy failed: '+err.message)}
+  btn.disabled=false;renderCloud()});
+addEventListener('online',()=>{renderCloud();renderHeader()});addEventListener('offline',()=>{renderCloud();renderHeader()});
 renderOrders();
 Store.init();
 })();
