@@ -563,6 +563,20 @@ tfoot td{font-weight:700;border-bottom:0;background:var(--soft)}
 .linkbtn{background:none;border:0;color:var(--muted);text-decoration:underline;cursor:pointer;font:inherit;font-size:13px;padding:6px}
 .sync-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--paid);margin-right:6px;vertical-align:middle}
 .sync-dot.off{background:var(--due)}
+.rep-bar{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-bottom:16px}
+.rep-bar .f{min-width:150px}
+.rep-legend{display:flex;gap:16px;font-size:13px;color:var(--muted);margin:-4px 0 8px}
+.rep-legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+.rep-chart svg{display:block;width:100%;height:auto}
+.rep-chart text{font-size:11px;fill:var(--muted);font-family:inherit}
+.rep-chart .grid{stroke:var(--line);stroke-width:1}
+.rep-chart .b-paid{fill:var(--paid)}.rep-chart .b-due{fill:var(--due);opacity:.55}.rep-chart .b-in{fill:var(--carbon)}
+.rep-chart .lbl{fill:var(--ink);font-weight:600}
+.rep-table{min-width:640px}
+.rep-table td.n,.rep-table th.n{text-align:right;font-variant-numeric:tabular-nums}
+.rep-table td:first-child{white-space:nowrap}.rep-table tbody tr{cursor:pointer}.rep-table tbody tr:hover{background:var(--soft)}
+.rep-table tbody tr.empty{color:var(--muted)}
+.rep-table tfoot td{font-weight:700;border-top:2px solid var(--line)}
 .mode{font-size:12px;color:var(--muted);margin-top:24px;text-align:center}
 
 .toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 20px);transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:9px;font-size:14px;opacity:0;pointer-events:none;max-width:90vw;z-index:10}
@@ -589,6 +603,7 @@ tfoot td{font-weight:700;border-bottom:0;background:var(--soft)}
     <nav class="tabs" role="tablist">
       <button role="tab" data-view="orders" aria-selected="true">Orders</button>
       <button role="tab" data-view="invoices" aria-selected="false">Invoices</button>
+      <button role="tab" data-view="reports" aria-selected="false">Reports</button>
       <button role="tab" data-view="settings" aria-selected="false">Settings</button>
     </nav>
   </header>
@@ -670,6 +685,25 @@ tfoot td{font-weight:700;border-bottom:0;background:var(--soft)}
   </section>
 
   <!-- SETTINGS -->
+  <section id="v-reports" hidden>
+    <div class="rep-bar">
+      <label class="f">Year<select id="rYear"></select></label>
+      <label class="f">Count income by<select id="rBasis"><option value="order">Order date</option><option value="paid">Date paid</option></select></label>
+      <button class="btn" type="button" id="rCsv">Export CSV</button>
+    </div>
+    <div class="ledger" id="rSummary"></div>
+    <div class="panel">
+      <h2 id="rChartTitle">Income by month</h2>
+      <div class="rep-legend" id="rLegend"></div>
+      <div id="rChart" class="rep-chart"></div>
+    </div>
+    <div class="panel">
+      <h2>Month by month</h2>
+      <p class="hint" style="margin-top:-4px">Click a month to see its orders.</p>
+      <div style="overflow-x:auto"><table class="rep-table" id="rTable"></table></div>
+    </div>
+  </section>
+
   <section id="v-settings" hidden>
     <form id="setForm" autocomplete="off">
       <div class="set-grid">
@@ -897,10 +931,73 @@ function arm(btn,fn,label){if(btn.dataset.armed){delete btn.dataset.armed;btn.cl
 
 /* ---------- views ---------- */
 function setView(v){S.view=v;$$('.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.view===v));
-  ['orders','invoices','settings'].forEach(k=>$('#v-'+k).hidden=k!==v);
+  ['orders','invoices','reports','settings'].forEach(k=>$('#v-'+k).hidden=k!==v);
+  if(v==='reports')renderReport();
   if(v==='invoices'){if(!D.number)newDraft(false);fillDraftForm();renderPick();renderPreview();renderHistory()}
   if(v==='settings')fillSettings();}
 $$('.tabs button').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view)));
+
+/* ---------- reports ---------- */
+const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function reportData(year,basis){
+  const rows=MONTHS.map((m,i)=>({key:year+'-'+String(i+1).padStart(2,'0'),label:m,orders:0,units:0,value:0,paid:0,due:0,received:0}));
+  Object.values(S.orders).forEach(o=>{const v=orderValue(o);
+    const od=o.date||'';if(od.startsWith(year+'-')){const r=rows[+od.slice(5,7)-1];if(r){r.orders++;r.units+=(+o.qty||0);r.value+=v;if(o.paid)r.paid+=v;else r.due+=v}}
+    if(o.paid){const pd=o.paidDate||o.date||'';if(pd.startsWith(year+'-')){const r=rows[+pd.slice(5,7)-1];if(r)r.received+=v}}});
+  rows.forEach(r=>{['value','paid','due','received'].forEach(k=>r[k]=r2(r[k]))});
+  return rows;
+}
+function niceMax(v){if(v<=0)return 100;const e=Math.pow(10,Math.floor(Math.log10(v)));const f=v/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e}
+function shortMoney(v){const c=S.settings.currency||'GBP';try{return new Intl.NumberFormat('en-GB',{style:'currency',currency:c,notation:'compact',maximumFractionDigits:1}).format(v)}catch(e){return String(Math.round(v))}}
+function renderReport(){
+  const ys=new Set([String(new Date().getFullYear())]);Object.values(S.orders).forEach(o=>{if(o.date)ys.add(o.date.slice(0,4));if(o.paidDate)ys.add(o.paidDate.slice(0,4))});
+  const years=[...ys].sort().reverse(),sel=$('#rYear'),cur=sel.value||String(new Date().getFullYear());
+  sel.innerHTML=years.map(y=>`<option${y===cur?' selected':''}>${y}</option>`).join('');
+  const year=sel.value,basis=$('#rBasis').value,rows=reportData(year,basis);
+  const tot=rows.reduce((a,r)=>{a.orders+=r.orders;a.units+=r.units;a.value+=r.value;a.paid+=r.paid;a.due+=r.due;a.received+=r.received;return a},{orders:0,units:0,value:0,paid:0,due:0,received:0});
+  const now=new Date(),isCur=+year===now.getFullYear(),elapsed=isCur?now.getMonth()+1:(+year<now.getFullYear()?12:0);
+  const main=basis==='paid'?'received':'value';
+  const best=rows.reduce((b,r)=>r[main]>b[main]?r:b,rows[0]);
+  const avg=elapsed?tot[main]/elapsed:0;
+  $('#rSummary').innerHTML=basis==='paid'
+    ?`<div><span class="fig">${fmt(tot.received)}</span><span class="l">Received in ${year}</span></div>
+      <div><span class="fig">${fmt(avg)}</span><span class="l">Average per month</span></div>
+      <div><span class="fig">${best[main]?best.label:'—'}</span><span class="l">Best month${best[main]?' · '+fmt(best[main]):''}</span></div>
+      <div class="out"><span class="fig">${fmt(tot.due)}</span><span class="l">Still owed on ${year} orders</span></div>
+      <div><span class="fig">${tot.orders}</span><span class="l">Orders in ${year}</span></div>`
+    :`<div><span class="fig">${fmt(tot.value)}</span><span class="l">Orders value ${year}</span></div>
+      <div class="pd"><span class="fig">${fmt(tot.paid)}</span><span class="l">Paid</span></div>
+      <div class="out"><span class="fig">${fmt(tot.due)}</span><span class="l">Outstanding</span></div>
+      <div><span class="fig">${fmt(avg)}</span><span class="l">Average per month</span></div>
+      <div><span class="fig">${best[main]?best.label:'—'}</span><span class="l">Best month${best[main]?' · '+fmt(best[main]):''}</span></div>`;
+  $('#rChartTitle').textContent=basis==='paid'?'Money received by month':'Orders value by month';
+  $('#rLegend').innerHTML=basis==='paid'?'<span><i style="background:var(--carbon)"></i>Received</span>':'<span><i style="background:var(--paid)"></i>Paid</span><span><i style="background:var(--due);opacity:.55"></i>Outstanding</span>';
+  // chart
+  const W=Math.max(300,Math.round($('#rChart').clientWidth||720)),H=W<520?220:260,L=W<520?40:48,R=8,T=18,B=26,cw=(W-L-R)/12,bw=Math.min(36,cw*.62),mx=niceMax(Math.max(...rows.map(r=>r[main])));
+  const y=v=>T+(H-T-B)*(1-v/mx);let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc($('#rChartTitle').textContent)} for ${year}">`;
+  for(let k=0;k<=4;k++){const v=mx*k/4,yy=y(v);s+=`<line class="grid" x1="${L}" x2="${W-R}" y1="${yy}" y2="${yy}"/><text x="${L-6}" y="${yy+4}" text-anchor="end">${shortMoney(v)}</text>`}
+  rows.forEach((r,i)=>{const x=L+i*cw+(cw-bw)/2,tip=`${r.label} ${year}: `;
+    if(basis==='paid'){if(r.received>0)s+=`<rect class="b-in" x="${x}" y="${y(r.received)}" width="${bw}" height="${y(0)-y(r.received)}" rx="3"><title>${tip}${fmt(r.received)} received</title></rect>`}
+    else{if(r.paid>0)s+=`<rect class="b-paid" x="${x}" y="${y(r.paid)}" width="${bw}" height="${y(0)-y(r.paid)}" rx="3"><title>${tip}${fmt(r.paid)} paid</title></rect>`;
+      if(r.due>0)s+=`<rect class="b-due" x="${x}" y="${y(r.paid+r.due)}" width="${bw}" height="${y(r.paid)-y(r.paid+r.due)}" rx="3"><title>${tip}${fmt(r.due)} outstanding</title></rect>`}
+    if(r[main]>0&&cw>=40)s+=`<text class="lbl" x="${x+bw/2}" y="${y(r[main])-5}" text-anchor="middle">${shortMoney(r[main])}</text>`;
+    s+=`<text x="${x+bw/2}" y="${H-8}" text-anchor="middle">${r.label}</text>`});
+  $('#rChart').innerHTML=s+'</svg>';
+  // table
+  const td=(v,c)=>`<td class="n${c?' '+c:''}">${v}</td>`;
+  $('#rTable').innerHTML=`<thead><tr><th>Month</th><th class="n">Orders</th><th class="n">Units</th><th class="n">Value</th><th class="n">Paid</th><th class="n">Outstanding</th><th class="n">Received that month</th></tr></thead>
+    <tbody>${rows.map(r=>`<tr data-month="${r.key}" class="${r.orders||r.received?'':'empty'}"><td>${r.label} ${year}</td>${td(r.orders)}${td(r.units)}${td(fmt(r.value))}${td(fmt(r.paid))}${td(fmt(r.due))}${td(fmt(r.received))}</tr>`).join('')}</tbody>
+    <tfoot><tr><td>Total ${year}</td>${td(tot.orders)}${td(tot.units)}${td(fmt(tot.value))}${td(fmt(tot.paid))}${td(fmt(tot.due))}${td(fmt(tot.received))}</tr></tfoot>`;
+}
+$('#rYear').addEventListener('change',renderReport);
+let rzT;addEventListener('resize',()=>{clearTimeout(rzT);rzT=setTimeout(()=>{if(S.view==='reports')renderReport()},150)});
+$('#rBasis').addEventListener('change',renderReport);
+$('#rTable').addEventListener('click',e=>{const tr=e.target.closest('tr[data-month]');if(!tr)return;
+  setView('orders');const m=$('#fMonth');if([...m.options].some(o=>o.value===tr.dataset.month)){m.value=tr.dataset.month;renderOrders()}else toast('No orders dated in that month')});
+$('#rCsv').addEventListener('click',()=>{const year=$('#rYear').value,rows=reportData(year);
+  const q=v=>{v=String(v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+  const out=[['Month','Orders','Units','Value','Paid','Outstanding','Received that month']].concat(rows.map(r=>[r.label+' '+year,r.orders,r.units,r.value.toFixed(2),r.paid.toFixed(2),r.due.toFixed(2),r.received.toFixed(2)]));
+  saveFile('report-'+year+'.csv',out.map(r=>r.map(q).join(',')).join('\n'),'text/csv')});
 
 /* ---------- orders ---------- */
 function renderSummary(list){
@@ -1213,7 +1310,7 @@ $('#restoreFile').addEventListener('change',e=>{const file=e.target.files[0];e.t
 /* ---------- wiring ---------- */
 function renderHeader(){$('#coName').textContent=S.settings.company||'Track orders, get paid';
   $('#modeNote').textContent=Store.mode==='db'?(navigator.onLine?'Synced to the cloud as '+(Store.user&&Store.user.email):'Offline — changes will sync when you\'re back online'):'Saved in this browser only. Sign in under Settings to sync between devices.';}
-function renderAll(){renderHeader();renderOrders();updateCalc();if(S.view==='invoices'){renderPick();renderPreview();renderHistory()}}
+function renderAll(){renderHeader();renderOrders();updateCalc();if(S.view==='reports')renderReport();if(S.view==='invoices'){renderPick();renderPreview();renderHistory()}}
 function onData(kind){
   if(kind==='settings'&&S.view==='settings'){/* keep the form as the user left it */}
   renderAll();
